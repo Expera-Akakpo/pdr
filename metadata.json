@@ -1,0 +1,6 @@
+{
+  "name": "Pont des Deux Rives — ProGen Bénin",
+  "description": "Site officiel du programme de volontariat international Pont des Deux Rives par l'ONG ProGen Bénin : engagement social, familles d'accueil et circuits touristiques au Bénin.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
