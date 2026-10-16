@@ -10,7 +10,7 @@ import { Contact } from './pages/Contact.tsx';
 import { NotFound } from './pages/NotFound.tsx';
 
 // Admin imports
-import { ADMIN_BASE_PATH } from './admin/config.ts';
+import { ADMIN_BASE_PATH, ADMIN_SEGMENT } from './admin/config.ts';
 import { AuthProvider } from './admin/context/AuthContext.tsx';
 import { ToastProvider } from './admin/context/ToastContext.tsx';
 import { AdminRouteGuard } from './admin/components/AdminRouteGuard.tsx';
@@ -54,11 +54,14 @@ function AdminHashRedirect() {
   useEffect(() => {
     const handleHashCheck = () => {
       const hash = (window.location.hash || '').toLowerCase().trim();
+      const customHash = `#${ADMIN_SEGMENT.toLowerCase()}`;
       if (
         hash === '#admin_pdr' ||
         hash === '#admin-pdr' ||
         hash === '#/admin_pdr' ||
-        hash === '#admin'
+        hash === '#admin' ||
+        hash === customHash ||
+        hash === `#/${ADMIN_SEGMENT.toLowerCase()}`
       ) {
         // Redirige immédiatement vers la console d'administration
         navigate(ADMIN_BASE_PATH);
