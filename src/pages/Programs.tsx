@@ -13,9 +13,9 @@ export const Programs: React.FC = () => {
 
   useEffect(() => {
     fetch('/api/programs')
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data.weeks && data.weeks.length > 0) {
+        if (data?.weeks && data.weeks.length > 0) {
           setWeeks(data.weeks);
         }
       })

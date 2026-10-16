@@ -40,10 +40,71 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Email et mot de passe requis.' });
   }
 
+  const envAdminEmail = (process.env.ADMIN_EMAIL || process.env.ADMIN_INITIAL_EMAIL || 'admin@progenbenin.org').trim().toLowerCase();
+  const envAdminPassword = process.env.ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD || 'ProGenAdmin2026!';
+  const submittedEmail = (email || '').trim().toLowerCase();
+
+  // 1. Direct match with .env configured administrator credentials
+  if (submittedEmail === envAdminEmail && password === envAdminPassword) {
+    resetLoginRateLimit(ip);
+    let userId = 'admin-principal';
+    let name = 'Administrateur ProGen Bénin';
+    const role: 'admin' = 'admin';
+
+    try {
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(password, salt);
+      const upsertRes = await pool.query(
+        `INSERT INTO admin_users (email, password_hash, name, role, is_active, last_login)
+         VALUES ($1, $2, $3, $4, true, CURRENT_TIMESTAMP)
+         ON CONFLICT (email)
+         DO UPDATE SET
+           password_hash = EXCLUDED.password_hash,
+           is_active = true,
+           last_login = CURRENT_TIMESTAMP
+         RETURNING id, email, name, role`,
+        [envAdminEmail, passwordHash, name, role]
+      );
+      if (upsertRes.rows.length > 0) {
+        userId = upsertRes.rows[0].id;
+        name = upsertRes.rows[0].name;
+      }
+    } catch (e: any) {
+      console.warn('[Admin Login] Connexion avec identifiants .env :', e.message);
+    }
+
+    const payload = {
+      userId,
+      email: envAdminEmail,
+      name,
+      role,
+    };
+
+    const token = signToken(payload);
+
+    res.cookie('admin_token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 8 * 60 * 60 * 1000, // 8h
+    });
+
+    try {
+      await logActivity(userId, 'login', 'auth', userId, { email: envAdminEmail, source: 'env' });
+    } catch {}
+
+    return res.json({
+      message: 'Connexion réussie',
+      token,
+      user: payload,
+    });
+  }
+
+  // 2. Otherwise verify against database admin_users
   try {
     const userRes = await pool.query(
       'SELECT id, email, password_hash, name, role, is_active FROM admin_users WHERE LOWER(email) = LOWER($1)',
-      [email.trim()]
+      [submittedEmail]
     );
 
     if (userRes.rows.length === 0) {

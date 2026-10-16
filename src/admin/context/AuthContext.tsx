@@ -137,9 +137,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        // Response is HTML or non-JSON (e.g. 404/502 from proxy or hosting)
+      }
+
       if (!res.ok) {
-        return { success: false, error: data.error || 'Identifiants invalides.' };
+        if (res.status === 404) {
+          return { success: false, error: "L'endpoint API /api/auth/login n'est pas encore disponible sur ce déploiement (erreur 404)." };
+        }
+        return { success: false, error: data?.error || 'Identifiants invalides.' };
+      }
+
+      if (!data?.token || !data?.user) {
+        return { success: false, error: 'Réponse du serveur incomplète.' };
       }
 
       localStorage.setItem('admin_token', data.token);
@@ -149,7 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       lastActivityRef.current = Date.now();
       return { success: true };
     } catch {
-      return { success: false, error: 'Impossible de contacter le serveur.' };
+      return { success: false, error: 'Impossible de contacter le serveur. Vérifiez votre connexion.' };
     }
   };
 

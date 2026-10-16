@@ -30,32 +30,40 @@ export interface UploadedFileMeta {
 export async function saveFile(
   file: Express.Multer.File
 ): Promise<UploadedFileMeta> {
-  const uploadsDir = path.resolve(__dirname, '../../public/uploads');
-
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-
-  // Nom de fichier unique et sécurisé
   const extension = path.extname(file.originalname).toLowerCase();
   const safeBaseName = path
     .basename(file.originalname, extension)
     .replace(/[^a-zA-Z0-9-_]/g, '_')
     .slice(0, 40);
   const uniqueFilename = `${Date.now()}_${safeBaseName}${extension}`;
-  const targetPath = path.join(uploadsDir, uniqueFilename);
 
-  // Écriture du fichier sur disque
-  fs.writeFileSync(targetPath, file.buffer);
+  try {
+    const uploadsDir = path.resolve(__dirname, '../../public/uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    const targetPath = path.join(uploadsDir, uniqueFilename);
+    fs.writeFileSync(targetPath, file.buffer);
+    const publicUrl = `/uploads/${uniqueFilename}`;
 
-  const publicUrl = `/uploads/${uniqueFilename}`;
-
-  return {
-    filename: uniqueFilename,
-    originalName: file.originalname,
-    mimeType: file.mimetype,
-    sizeBytes: file.size,
-    url: publicUrl,
-    thumbnailUrl: file.mimetype.startsWith('image/') ? publicUrl : undefined,
-  };
+    return {
+      filename: uniqueFilename,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      url: publicUrl,
+      thumbnailUrl: file.mimetype.startsWith('image/') ? publicUrl : undefined,
+    };
+  } catch (err: any) {
+    console.warn('[Storage] Disque en lecture seule ou erreur FS, utilisation de data URL base64 :', err.message);
+    const base64Data = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    return {
+      filename: uniqueFilename,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      url: base64Data,
+      thumbnailUrl: file.mimetype.startsWith('image/') ? base64Data : undefined,
+    };
+  }
 }

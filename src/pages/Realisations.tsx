@@ -16,7 +16,7 @@ export const Realisations: React.FC = () => {
 
   useEffect(() => {
     fetch('/api/realisations')
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (Array.isArray(data)) {
           setRealisations(data);

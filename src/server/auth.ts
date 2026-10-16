@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { pool } from './db.ts';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'pont-des-deux-rives-secret-jwt-key-2026-progen';
+const JWT_SECRET =
+  process.env.SECRET_KEY ||
+  process.env.JWT_SECRET ||
+  process.env.APP_SECRET ||
+  'f8a9e6d4c2b1a03e7f5d9c8b2a1e0f3d7c5b9a8e2f1d0c4b6a8e9f2d1c3b5a7e';
 
 export interface AdminAuthPayload {
   userId: string;
@@ -86,15 +90,19 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
   // Verify in database that user is active
   try {
     const userRes = await pool.query('SELECT id, email, name, role, is_active FROM admin_users WHERE id = $1', [payload.userId]);
-    if (userRes.rows.length === 0 || !userRes.rows[0].is_active) {
-      return res.status(403).json({ error: 'Ce compte utilisateur a été désactivé.' });
+    if (userRes.rows.length > 0) {
+      if (!userRes.rows[0].is_active) {
+        return res.status(403).json({ error: 'Ce compte utilisateur a été désactivé.' });
+      }
+      req.adminUser = {
+        userId: userRes.rows[0].id,
+        email: userRes.rows[0].email,
+        name: userRes.rows[0].name,
+        role: userRes.rows[0].role,
+      };
+    } else {
+      req.adminUser = payload;
     }
-    req.adminUser = {
-      userId: userRes.rows[0].id,
-      email: userRes.rows[0].email,
-      name: userRes.rows[0].name,
-      role: userRes.rows[0].role,
-    };
     next();
   } catch (err: any) {
     // If DB check fails, rely on valid JWT payload

@@ -15,7 +15,7 @@ export const Circuits: React.FC = () => {
 
   useEffect(() => {
     fetch('/api/circuits')
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setCircuits(data);

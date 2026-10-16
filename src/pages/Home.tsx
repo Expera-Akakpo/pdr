@@ -25,35 +25,35 @@ export const Home: React.FC = () => {
   useEffect(() => {
     // Fetch live data from backend API with fallback resilience
     fetch('/api/settings')
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && typeof data === 'object') setSettings(data);
       })
       .catch(() => {});
 
     fetch('/api/programs')
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data.pilars && data.pilars.length > 0) setPilars(data.pilars);
+        if (data?.pilars && data.pilars.length > 0) setPilars(data.pilars);
       })
       .catch(() => {});
 
     fetch('/api/stats')
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) setStats(data);
       })
       .catch(() => {});
 
     fetch('/api/testimonials')
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) setTestimonials(data);
       })
       .catch(() => {});
 
     fetch('/api/partners')
-      .then((res) => res.json())
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) setPartners(data);
       })

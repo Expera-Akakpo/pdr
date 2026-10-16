@@ -107,3 +107,18 @@ Pour ajouter un nouveau module dans la console en suivant le modèle existant :
 - `GET / POST / PUT / DELETE /api/admin/users` : Gestion des comptes admin.
 - `GET / POST / DELETE /api/admin/media` : Médiathèque et téléversement multipart.
 - `GET / PUT /api/admin/settings` : Paramètres globaux du site.
+
+---
+
+## 7. Déploiement sur Vercel
+
+Le projet est configuré pour un déploiement full-stack sur Vercel grâce à :
+- **`vercel.json`** : Redirige les requêtes `/api/*` vers la Serverless Function Vercel et les autres chemins vers `index.html`.
+- **`api/index.ts`** : Point d'entrée Serverless Function qui exécute l'API Express connectée à Neon PostgreSQL.
+
+### Configuration Vercel :
+1. Sur votre tableau de bord Vercel (**Project Settings > Environment Variables**), ajoutez la variable :
+   - `DATABASE_URL` : L'URL de connexion Neon PostgreSQL (identique à celle du fichier `.env`).
+   - `JWT_SECRET` : Clé secrète pour les tokens de session admin.
+2. Redéployez votre projet (un nouveau push sur GitHub déclenchera le déploiement automatique).
+
