@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate, Outlet } from 'react-router-dom';
 import { Header } from './components/Header.tsx';
 import { Footer } from './components/Footer.tsx';
 import { Home } from './pages/Home.tsx';
@@ -38,10 +38,37 @@ function ScrollToTop() {
   const { pathname, hash } = useLocation();
 
   useEffect(() => {
-    if (!hash) {
+    if (!hash || hash === '#admin_pdr') {
       window.scrollTo(0, 0);
     }
   }, [pathname, hash]);
+
+  return null;
+}
+
+// Détecteur du hash #admin_pdr pour ouvrir directement la console admin sans clé ni env var
+function AdminHashRedirect() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleHashCheck = () => {
+      const hash = (window.location.hash || '').toLowerCase().trim();
+      if (
+        hash === '#admin_pdr' ||
+        hash === '#admin-pdr' ||
+        hash === '#/admin_pdr' ||
+        hash === '#admin'
+      ) {
+        // Redirige immédiatement vers la console d'administration
+        navigate(ADMIN_BASE_PATH);
+      }
+    };
+
+    handleHashCheck();
+    window.addEventListener('hashchange', handleHashCheck);
+    return () => window.removeEventListener('hashchange', handleHashCheck);
+  }, [location, navigate]);
 
   return null;
 }
@@ -63,6 +90,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <AdminHashRedirect />
       <ToastProvider>
         <AuthProvider>
           <Routes>
@@ -77,7 +105,11 @@ export default function App() {
               <Route path="*" element={<NotFound />} />
             </Route>
 
-            {/* 2. ROUTE DE CONNEXION ADMIN SECRÈTE (Layout autonome) */}
+            {/* Redirection rétro-compatibilité ancienne URL console */}
+            <Route path="/console-6f3a9b2c/*" element={<Navigate to={ADMIN_BASE_PATH} replace />} />
+            <Route path="/admin" element={<Navigate to={ADMIN_BASE_PATH} replace />} />
+
+            {/* 2. ROUTE DE CONNEXION ADMIN (Layout autonome sobre) */}
             <Route path={`${ADMIN_BASE_PATH}/login`} element={<Login />} />
 
             {/* 3. CONSOLE D'ADMINISTRATION PROGÈNE PRIVÉE (Sidebar + Header admin séparés) */}

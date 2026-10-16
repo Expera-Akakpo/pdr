@@ -117,7 +117,10 @@ export const Footer: React.FC = () => {
         {/* Barre inférieure */}
         <div className="mt-12 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-300 gap-4">
           <p>
-            © 2026 ProGen Bénin — Pont des Deux Rives. Tous droits réservés.
+            <a href="#admin_pdr" className="hover:text-white/80 transition-colors focus:outline-none" title="Pont des Deux Rives">
+              © 2026 ProGen Bénin — Pont des Deux Rives.
+            </a>{' '}
+            Tous droits réservés.
           </p>
           <div className="flex items-center space-x-6">
             <Link to="/contact" className="hover:text-white">Mentions légales</Link>

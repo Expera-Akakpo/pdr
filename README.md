@@ -26,19 +26,11 @@ npm run start
 
 ## 2. Console d'Administration Privée
 
-### A. URL d'accès secrète
-Pour des raisons de sécurité, la console d'administration **n'apparaît dans aucun menu, aucun pied de page, ni dans robots.txt**.
-
-Elle est accessible via une URL secrète configurée dans le fichier `.env` via la variable `VITE_ADMIN_PATH` :
-```env
-VITE_ADMIN_PATH="console-6f3a9b2c"
-```
-
-Par défaut, l'URL de connexion est :
-👉 **`http://localhost:3000/console-6f3a9b2c/login`**
-(Une fois connecté, le tableau de bord est sur `/console-6f3a9b2c`)
-
-Vous pouvez modifier ce segment à tout moment dans `.env` sans modifier le code.
+### A. Accès direct via #admin_pdr
+La console d'administration est accessible directement sans configuration complexe ni clé secrète :
+- **Via le hash d'URL :** Ajoutez simplement **`#admin_pdr`** à la fin de l'URL du site (ex: `http://localhost:3000/#admin_pdr` ou `https://votresite.com/#admin_pdr`).
+- **Via l'URL directe :** **`http://localhost:3000/admin_pdr`**
+- **Via le pied de page :** Un clic discret sur le copyright en bas de page redirige directement vers l'espace administrateur.
 
 ### B. Compte administrateur initial
 Un compte administrateur a été configuré via le script `seed-admin.ts` :
