@@ -2,11 +2,13 @@ import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { pool } from './db.ts';
 
-const JWT_SECRET =
+const rawSecret =
   process.env.SECRET_KEY ||
   process.env.JWT_SECRET ||
   process.env.APP_SECRET ||
   'f8a9e6d4c2b1a03e7f5d9c8b2a1e0f3d7c5b9a8e2f1d0c4b6a8e9f2d1c3b5a7e';
+
+const JWT_SECRET = rawSecret.trim().replace(/^["']|["']$/g, '');
 
 export interface AdminAuthPayload {
   userId: string;

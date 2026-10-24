@@ -42,12 +42,18 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Identifiant (email ou nom d\'utilisateur) et mot de passe requis.' });
   }
 
-  const envAdminEmail = (process.env.ADMIN_EMAIL || process.env.ADMIN_INITIAL_EMAIL || 'admin@progenbenin.org').trim().toLowerCase();
-  const envAdminPassword = (process.env.ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD || 'ProGenAdmin2026!');
+  const rawAdminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_INITIAL_EMAIL || 'admin@progenbenin.org';
+  const rawAdminPassword = process.env.ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD || 'ProGenAdmin2026!';
+
+  // Nettoyage des guillemets accidentels copiés dans l'interface Vercel
+  const envAdminEmail = rawAdminEmail.trim().replace(/^["']|["']$/g, '').toLowerCase();
+  const envAdminPassword = rawAdminPassword.trim().replace(/^["']|["']$/g, '');
   const submittedIdentifier = (email || '').trim().toLowerCase();
   const submittedPassword = (password || '');
 
-  const isPasswordMatch = submittedPassword === envAdminPassword || submittedPassword.trim() === envAdminPassword.trim();
+  console.log(`[Admin Login Attempt] Identifiant: "${submittedIdentifier}" (longueur: ${submittedIdentifier.length}) | IP: ${ip}`);
+
+  const isPasswordMatch = submittedPassword === envAdminPassword;
   const isEnvAdminMatch = (
     submittedIdentifier === envAdminEmail ||
     ((submittedIdentifier === 'admin' || submittedIdentifier === 'administrateur') && envAdminEmail.startsWith('admin')) ||
@@ -56,31 +62,35 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
 
   // 1. Direct match with .env configured administrator credentials
   if (isEnvAdminMatch && isPasswordMatch) {
+    console.log('[Admin Login] Succès authentification via identifiants .env');
     resetLoginRateLimit(ip);
     let userId = 'admin-principal';
     let name = 'Administrateur ProGen Bénin';
     const role: 'admin' = 'admin';
 
     try {
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash(envAdminPassword, salt);
-      const upsertRes = await pool.query(
-        `INSERT INTO admin_users (email, password_hash, name, role, is_active, last_login)
-         VALUES ($1, $2, $3, $4, true, CURRENT_TIMESTAMP)
-         ON CONFLICT (email)
-         DO UPDATE SET
-           password_hash = EXCLUDED.password_hash,
-           is_active = true,
-           last_login = CURRENT_TIMESTAMP
-         RETURNING id, email, name, role`,
-        [envAdminEmail, passwordHash, name, role]
-      );
-      if (upsertRes.rows.length > 0) {
-        userId = upsertRes.rows[0].id;
-        name = upsertRes.rows[0].name;
+      // Vérification ou récupération de l'UUID existant dans admin_users
+      const existingUser = await pool.query('SELECT id, name FROM admin_users WHERE LOWER(email) = LOWER($1)', [envAdminEmail]);
+      if (existingUser.rows.length > 0) {
+        userId = existingUser.rows[0].id;
+        name = existingUser.rows[0].name;
+        await pool.query('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
+      } else {
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(envAdminPassword, salt);
+        const insertRes = await pool.query(
+          `INSERT INTO admin_users (email, password_hash, name, role, is_active, last_login)
+           VALUES ($1, $2, $3, $4, true, CURRENT_TIMESTAMP)
+           RETURNING id, name`,
+          [envAdminEmail, passwordHash, name, role]
+        );
+        if (insertRes.rows.length > 0) {
+          userId = insertRes.rows[0].id;
+          name = insertRes.rows[0].name;
+        }
       }
     } catch (e: any) {
-      console.warn('[Admin Login] Connexion avec identifiants .env :', e.message);
+      console.warn('[Admin Login] Synchronisation DB optionnelle :', e.message);
     }
 
     const payload = {
@@ -131,17 +141,19 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
     );
 
     if (userRes.rows.length === 0) {
+      console.log(`[Admin Login] Compte introuvable pour identifiant : "${submittedIdentifier}"`);
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect.' });
     }
 
     const user = userRes.rows[0];
     if (!user.is_active) {
+      console.log(`[Admin Login] Compte désactivé pour : ${user.email}`);
       return res.status(403).json({ error: 'Ce compte administrateur a été désactivé.' });
     }
 
-    const isMatch = (await bcrypt.compare(submittedPassword, user.password_hash)) ||
-                    (submittedPassword !== submittedPassword.trim() && (await bcrypt.compare(submittedPassword.trim(), user.password_hash)));
+    const isMatch = await bcrypt.compare(submittedPassword, user.password_hash);
     if (!isMatch) {
+      console.log(`[Admin Login] Mot de passe non concordant pour : ${user.email}`);
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect.' });
     }
 
@@ -170,7 +182,7 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
 
     await logActivity(user.id, 'login', 'auth', user.id, { email: user.email });
 
-    res.json({
+    return res.json({
       success: true,
       token,
       user: {
@@ -181,8 +193,10 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    console.error('[Admin Auth] Erreur login :', err);
-    res.status(500).json({ error: 'Erreur serveur lors de la connexion.' });
+    console.error('[Admin Auth Error] Échec de la requête de connexion :', err?.message || err);
+    return res.status(500).json({
+      error: 'Erreur technique de connexion à la base de données. Veuillez réessayer dans quelques instants.',
+    });
   }
 });
 

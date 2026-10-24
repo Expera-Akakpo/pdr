@@ -146,7 +146,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!res.ok) {
         if (res.status === 404) {
-          return { success: false, error: "L'endpoint API /api/auth/login n'est pas encore disponible sur ce déploiement (erreur 404)." };
+          return { success: false, error: "L'endpoint API d'authentification est indisponible (erreur 404). Vérifiez le routage Vercel." };
+        }
+        if (res.status >= 500) {
+          return {
+            success: false,
+            error: data?.error || `Erreur serveur (HTTP ${res.status}). Le service d'authentification ou la base de données est momentanément indisponible.`,
+          };
         }
         return { success: false, error: data?.error || 'Identifiant ou mot de passe incorrect.' };
       }
