@@ -148,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (res.status === 404) {
           return { success: false, error: "L'endpoint API /api/auth/login n'est pas encore disponible sur ce déploiement (erreur 404)." };
         }
-        return { success: false, error: data?.error || 'Identifiants invalides.' };
+        return { success: false, error: data?.error || 'Identifiant ou mot de passe incorrect.' };
       }
 
       if (!data?.token || !data?.user) {

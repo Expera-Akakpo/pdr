@@ -43,5 +43,10 @@
     "autoprefixer": "^10.4.21",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0"
+  },
+  "allowScripts": {
+    "@google/genai": true,
+    "esbuild": true,
+    "protobufjs": true
   }
 }

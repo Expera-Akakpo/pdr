@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import defaultHeroImage from '../assets/images/pont_deux_rives_hero_1792059615449.jpg';
+import defaultHeroWebp from '../assets/images/pont_deux_rives_hero_1792059615449.webp';
+import defaultHeroJpg from '../assets/images/pont_deux_rives_hero_1792059615449.jpg';
 
 interface HeroProps {
   backgroundImage?: string;
@@ -15,17 +16,25 @@ export const Hero: React.FC<HeroProps> = ({
   subtitle,
   intro,
 }) => {
-  const resolvedImage = backgroundImage || defaultHeroImage;
+  const resolvedImage = backgroundImage || defaultHeroWebp;
 
   return (
     <section className="relative text-white overflow-hidden py-20 sm:py-24 lg:py-32 border-b-4 border-[#E6B325] min-h-[600px] flex items-center justify-center">
       {/* 1. Image de fond photographique pleine largeur (Pont des Deux Rives au Bénin) */}
-      <img
-        src={resolvedImage}
-        alt="Pont des Deux Rives — Immersion et découverte au Bénin"
-        className="absolute inset-0 w-full h-full object-cover object-center transform scale-100 transition-transform duration-700 ease-out"
-        loading="eager"
-      />
+      <picture className="absolute inset-0 w-full h-full pointer-events-none">
+        {!backgroundImage && <source type="image/webp" srcSet={defaultHeroWebp} />}
+        <img
+          src={resolvedImage}
+          onError={(e) => {
+            // Fallback to JPG if webp fails
+            (e.currentTarget as HTMLImageElement).src = defaultHeroJpg;
+          }}
+          alt="Pont des Deux Rives — Immersion et découverte au Bénin"
+          className="w-full h-full object-cover object-center transform scale-100 transition-transform duration-700 ease-out"
+          loading="eager"
+          decoding="async"
+        />
+      </picture>
 
       {/* 2. Voile cinématographique transparent : laisse transparaître la vraie photographie tout en assurant une lisibilité optimale */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#131F45]/90 via-[#1B2A5E]/40 to-black/35" />

@@ -1,5 +1,6 @@
 import React from 'react';
-import defaultHeroImage from '../assets/images/pont_deux_rives_hero_1792059615449.jpg';
+import defaultHeroWebp from '../assets/images/pont_deux_rives_hero_1792059615449.webp';
+import defaultHeroJpg from '../assets/images/pont_deux_rives_hero_1792059615449.jpg';
 
 interface PageHeaderProps {
   badge?: string;
@@ -14,17 +15,25 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   description,
   backgroundImage,
 }) => {
-  const resolvedImage = backgroundImage || defaultHeroImage;
+  const resolvedImage = backgroundImage || defaultHeroWebp;
 
   return (
     <div className="relative text-white py-14 sm:py-20 overflow-hidden border-b-4 border-[#E6B325]">
       {/* Image photographique d'arrière-plan */}
-      <img
-        src={resolvedImage}
-        alt=""
-        aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-cover object-center"
-      />
+      <picture className="absolute inset-0 w-full h-full pointer-events-none">
+        {!backgroundImage && <source type="image/webp" srcSet={defaultHeroWebp} />}
+        <img
+          src={resolvedImage}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = defaultHeroJpg;
+          }}
+          alt=""
+          aria-hidden="true"
+          className="w-full h-full object-cover object-center"
+          loading="eager"
+          decoding="async"
+        />
+      </picture>
 
       {/* Filtre dégradé subtil laissant transparaître la photo */}
       <div className="absolute inset-0 bg-gradient-to-r from-[#1B2A5E]/85 via-[#1B2A5E]/70 to-[#131F45]/80" />

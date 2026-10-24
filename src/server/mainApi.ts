@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
+import type { Request, Response } from 'express';
 import { pool, isDbConnected } from './db.ts';
 import { adminRouter } from './adminRoutes.ts';
 import {

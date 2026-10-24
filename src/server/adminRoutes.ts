@@ -1,4 +1,5 @@
-import { Router, Request, Response } from 'express';
+import { Router } from 'express';
+import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
 import { pool } from './db.ts';
@@ -26,7 +27,8 @@ export const adminRouter = Router();
 
 // POST /api/auth/login
 adminRouter.post('/auth/login', async (req: Request, res: Response) => {
-  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const forwardedFor = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim();
+  const ip = forwardedFor || req.ip || req.socket.remoteAddress || 'unknown';
   const rateLimit = checkLoginRateLimit(ip);
   if (!rateLimit.allowed) {
     const minutes = Math.ceil(rateLimit.remainingMs / 60000);
@@ -37,15 +39,23 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
 
   const { email, password } = req.body;
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email et mot de passe requis.' });
+    return res.status(400).json({ error: 'Identifiant (email ou nom d\'utilisateur) et mot de passe requis.' });
   }
 
   const envAdminEmail = (process.env.ADMIN_EMAIL || process.env.ADMIN_INITIAL_EMAIL || 'admin@progenbenin.org').trim().toLowerCase();
-  const envAdminPassword = process.env.ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD || 'ProGenAdmin2026!';
-  const submittedEmail = (email || '').trim().toLowerCase();
+  const envAdminPassword = (process.env.ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD || 'ProGenAdmin2026!');
+  const submittedIdentifier = (email || '').trim().toLowerCase();
+  const submittedPassword = (password || '');
+
+  const isPasswordMatch = submittedPassword === envAdminPassword || submittedPassword.trim() === envAdminPassword.trim();
+  const isEnvAdminMatch = (
+    submittedIdentifier === envAdminEmail ||
+    ((submittedIdentifier === 'admin' || submittedIdentifier === 'administrateur') && envAdminEmail.startsWith('admin')) ||
+    (submittedIdentifier === envAdminEmail.split('@')[0])
+  );
 
   // 1. Direct match with .env configured administrator credentials
-  if (submittedEmail === envAdminEmail && password === envAdminPassword) {
+  if (isEnvAdminMatch && isPasswordMatch) {
     resetLoginRateLimit(ip);
     let userId = 'admin-principal';
     let name = 'Administrateur ProGen Bénin';
@@ -53,7 +63,7 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
 
     try {
       const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash(password, salt);
+      const passwordHash = await bcrypt.hash(envAdminPassword, salt);
       const upsertRes = await pool.query(
         `INSERT INTO admin_users (email, password_hash, name, role, is_active, last_login)
          VALUES ($1, $2, $3, $4, true, CURRENT_TIMESTAMP)
@@ -81,10 +91,11 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
     };
 
     const token = signToken(payload);
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
 
     res.cookie('admin_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       maxAge: 8 * 60 * 60 * 1000, // 8h
     });
@@ -94,21 +105,33 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
     } catch {}
 
     return res.json({
+      success: true,
       message: 'Connexion réussie',
       token,
-      user: payload,
+      user: {
+        id: userId,
+        email: envAdminEmail,
+        name,
+        role,
+      },
     });
   }
 
   // 2. Otherwise verify against database admin_users
   try {
     const userRes = await pool.query(
-      'SELECT id, email, password_hash, name, role, is_active FROM admin_users WHERE LOWER(email) = LOWER($1)',
-      [submittedEmail]
+      `SELECT id, email, password_hash, name, role, is_active 
+       FROM admin_users 
+       WHERE LOWER(email) = LOWER($1)
+          OR (LOWER($1) IN ('admin', 'administrateur') AND role = 'admin')
+          OR (SPLIT_PART(LOWER(email), '@', 1) = LOWER($1))
+       ORDER BY last_login DESC NULLS LAST
+       LIMIT 1`,
+      [submittedIdentifier]
     );
 
     if (userRes.rows.length === 0) {
-      return res.status(401).json({ error: 'Identifiants incorrects.' });
+      return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect.' });
     }
 
     const user = userRes.rows[0];
@@ -116,9 +139,10 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Ce compte administrateur a été désactivé.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
+    const isMatch = (await bcrypt.compare(submittedPassword, user.password_hash)) ||
+                    (submittedPassword !== submittedPassword.trim() && (await bcrypt.compare(submittedPassword.trim(), user.password_hash)));
     if (!isMatch) {
-      return res.status(401).json({ error: 'Identifiants incorrects.' });
+      return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect.' });
     }
 
     resetLoginRateLimit(ip);
@@ -134,11 +158,12 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
     };
 
     const token = signToken(payload);
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
 
     // Set HTTP-only cookie
     res.cookie('admin_token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       maxAge: 8 * 60 * 60 * 1000, // 8h
     });

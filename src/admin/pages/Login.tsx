@@ -23,7 +23,7 @@ export const Login: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    const result = await login(email, password);
+    const result = await login(email.trim(), password);
     setLoading(false);
 
     if (result.success) {
@@ -58,15 +58,16 @@ export const Login: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="admin-email" className="block text-xs font-bold text-[#1B2A5E] uppercase tracking-wider mb-1">
-                Adresse e-mail
+                Identifiant ou adresse e-mail
               </label>
               <input
                 id="admin-email"
-                type="email"
+                type="text"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@progenbenin.org"
+                placeholder="admin@progenbenin.org ou admin"
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-[#E6B325] focus:ring-1 focus:ring-[#E6B325] outline-none"
               />
             </div>
