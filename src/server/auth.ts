@@ -6,9 +6,16 @@ const rawSecret =
   process.env.SECRET_KEY ||
   process.env.JWT_SECRET ||
   process.env.APP_SECRET ||
-  'f8a9e6d4c2b1a03e7f5d9c8b2a1e0f3d7c5b9a8e2f1d0c4b6a8e9f2d1c3b5a7e';
+  '';
 
 const JWT_SECRET = rawSecret.trim().replace(/^["']|["']$/g, '');
+
+export function getJwtSecret(): string {
+  if (!JWT_SECRET) {
+    throw new Error('Variable d\'environnement SECRET_KEY (ou JWT_SECRET) manquante.');
+  }
+  return JWT_SECRET;
+}
 
 export interface AdminAuthPayload {
   userId: string;
@@ -22,12 +29,12 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function signToken(payload: AdminAuthPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '8h' });
 }
 
 export function verifyToken(token: string): AdminAuthPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as AdminAuthPayload;
+    return jwt.verify(token, getJwtSecret()) as AdminAuthPayload;
   } catch {
     return null;
   }
@@ -126,15 +133,19 @@ export function requireRole(allowedRoles: ('admin' | 'editeur')[]) {
   };
 }
 
-// Helper to log activities in database
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// Helper to log activities in database safely
 export async function logActivity(adminId: string | undefined, action: string, entity: string, entityId?: string, details?: any) {
   try {
+    const validAdminId = adminId && UUID_REGEX.test(adminId) ? adminId : null;
+    const validEntityId = entityId && UUID_REGEX.test(entityId) ? entityId : null;
     await pool.query(
       `INSERT INTO activity_log (admin_id, action, entity, entity_id, details)
        VALUES ($1, $2, $3, $4, $5)`,
-      [adminId || null, action, entity, entityId || null, details ? JSON.stringify(details) : '{}']
+      [validAdminId, action, entity, validEntityId, details ? JSON.stringify(details) : '{}']
     );
   } catch (err: any) {
-    console.warn('[Activity Log] Échec de consignation :', err.message);
+    console.warn('[Activity Log] Échec de consignation sécurisée :', err.message);
   }
 }

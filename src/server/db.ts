@@ -8,20 +8,24 @@ dotenv.config();
  * CONNEXION NEON POSTGRESQL — PONT DES DEUX RIVES
  * ============================================================
  */
-const DEFAULT_NEON_URL =
-  'postgresql://neondb_owner:npg_FaHr4SwJdk9V@ep-dark-king-b48wa814-pooler.c-6.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+const rawUrl = (process.env.DATABASE_URL || '').trim().replace(/^["']|["']$/g, '');
 
-// Nettoyage de la chaîne de connexion (guillemets accidentels copiés dans Vercel UI)
-const rawUrl = (process.env.DATABASE_URL || DEFAULT_NEON_URL).trim().replace(/^["']|["']$/g, '');
+if (!rawUrl) {
+  console.warn('[Neon PostgreSQL] ATTENTION: La variable d\'environnement DATABASE_URL n\'est pas définie.');
+}
 
-// Nettoyer le paramètre channel_binding s'il est présent pour compatibilité totale du pilote en serverless
-const cleanConnectionString = rawUrl.replace(/([?&])channel_binding=[^&]+(&|$)/, '$1').replace(/[?&]$/, '');
+// Nettoyer le paramètre channel_binding s'il est présent pour compatibilité avec le pilote pg Node
+const cleanConnectionString = rawUrl
+  ? rawUrl.replace(/([?&])channel_binding=[^&]+(&|$)/, '$1').replace(/[?&]$/, '')
+  : '';
 
 export const pool = new pg.Pool({
-  connectionString: cleanConnectionString,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  connectionString: cleanConnectionString || undefined,
+  ssl: cleanConnectionString
+    ? {
+        rejectUnauthorized: false,
+      }
+    : undefined,
   max: 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 15000, // 15 secondes pour laisser à Neon le temps de sortir de veille
@@ -32,19 +36,23 @@ pool.on('error', (err) => {
   console.warn('[Neon Pool Warning] Déconnexion ou réinitialisation d\'un socket inactif :', err.message);
 });
 
-// Statut de connexion informatif
 let isConnected = false;
 
-pool
-  .query('SELECT 1')
-  .then(() => {
+export async function checkDbConnection(): Promise<boolean> {
+  if (!cleanConnectionString) {
+    isConnected = false;
+    return false;
+  }
+  try {
+    await pool.query('SELECT 1');
     isConnected = true;
-    console.log('[Neon PostgreSQL] Connecté avec succès à la base Neon.');
-  })
-  .catch((err) => {
-    console.warn('[Neon PostgreSQL] Vérification initiale de la base Neon :', err.message);
-    console.warn('[Neon PostgreSQL] Mode hybride activé avec données initiales sécurisées.');
-  });
+    return true;
+  } catch (err: any) {
+    isConnected = false;
+    console.warn('[Neon PostgreSQL] Échec du test de connexion :', err.message);
+    return false;
+  }
+}
 
 export function isDbConnected(): boolean {
   return isConnected;

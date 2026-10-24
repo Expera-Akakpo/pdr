@@ -44,6 +44,51 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Capture des exceptions non gérées pour éviter FUNCTION_INVOCATION_FAILED sous Vercel
+process.on('uncaughtException', (err) => {
+  console.error('[Vercel Serverless UncaughtException]:', err?.message || err);
+});
+process.on('unhandledRejection', (reason: any) => {
+  console.error('[Vercel Serverless UnhandledRejection]:', reason?.message || reason);
+});
+
+console.log('[Vercel Serverless] Initialisation du handler api/index.ts');
+
+// Direct Healthcheck pour diagnostic rapide sans dépendances
+app.get(['/api/health', '/health'], async (_req: Request, res: Response) => {
+  const hasDbUrl = !!process.env.DATABASE_URL;
+  const hasSecret = !!(process.env.SECRET_KEY || process.env.JWT_SECRET || process.env.APP_SECRET);
+  const hasAdminEmail = !!(process.env.ADMIN_EMAIL || process.env.ADMIN_INITIAL_EMAIL);
+  const hasAdminPassword = !!(process.env.ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD);
+
+  let dbOk = false;
+  let dbError: string | null = null;
+  if (hasDbUrl) {
+    try {
+      const { pool } = await import('../src/server/db.ts');
+      const test = await pool.query('SELECT 1 as test');
+      dbOk = !!test.rows[0];
+    } catch (e: any) {
+      dbError = e?.message || 'Erreur DB';
+    }
+  }
+
+  res.json({
+    status: 'ok',
+    environmentConfigured: {
+      DATABASE_URL: hasDbUrl,
+      SECRET_KEY: hasSecret,
+      ADMIN_EMAIL: hasAdminEmail,
+      ADMIN_PASSWORD: hasAdminPassword,
+      NODE_ENV: process.env.NODE_ENV || 'production',
+      nodeVersion: process.version,
+    },
+    databaseConnected: dbOk,
+    databaseError: dbError,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Support both /api/... and root-level /... for resilient Vercel routing
 app.use('/api', mainApi);
 app.use('/', mainApi);

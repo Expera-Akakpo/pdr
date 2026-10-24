@@ -10,7 +10,7 @@ import {
   logActivity,
   checkLoginRateLimit,
   resetLoginRateLimit,
-  AuthenticatedRequest,
+  type AuthenticatedRequest,
 } from './auth.ts';
 import { saveFile } from './storage.ts';
 
@@ -42,93 +42,86 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Identifiant (email ou nom d\'utilisateur) et mot de passe requis.' });
   }
 
-  const rawAdminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_INITIAL_EMAIL || 'admin@progenbenin.org';
-  const rawAdminPassword = process.env.ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD || 'ProGenAdmin2026!';
+  const submittedIdentifier = String(email || '').trim().toLowerCase();
+  const submittedPassword = String(password || '');
 
-  // Nettoyage des guillemets accidentels copiés dans l'interface Vercel
+  console.log(`[Admin Login] [Routage] Tentative de connexion reçue pour identifiant: "${submittedIdentifier}" | IP: ${ip}`);
+
+  // 1. Vérification optionnelle des identifiants d'environnement si configurés sur Vercel
+  const rawAdminEmail = process.env.ADMIN_EMAIL || process.env.ADMIN_INITIAL_EMAIL || '';
+  const rawAdminPassword = process.env.ADMIN_PASSWORD || process.env.ADMIN_INITIAL_PASSWORD || '';
   const envAdminEmail = rawAdminEmail.trim().replace(/^["']|["']$/g, '').toLowerCase();
   const envAdminPassword = rawAdminPassword.trim().replace(/^["']|["']$/g, '');
-  const submittedIdentifier = (email || '').trim().toLowerCase();
-  const submittedPassword = (password || '');
 
-  console.log(`[Admin Login Attempt] Identifiant: "${submittedIdentifier}" (longueur: ${submittedIdentifier.length}) | IP: ${ip}`);
+  if (envAdminEmail && envAdminPassword) {
+    const isPasswordMatch = submittedPassword === envAdminPassword;
+    const isEnvAdminMatch = (
+      submittedIdentifier === envAdminEmail ||
+      ((submittedIdentifier === 'admin' || submittedIdentifier === 'administrateur') && envAdminEmail.startsWith('admin')) ||
+      (submittedIdentifier === envAdminEmail.split('@')[0])
+    );
 
-  const isPasswordMatch = submittedPassword === envAdminPassword;
-  const isEnvAdminMatch = (
-    submittedIdentifier === envAdminEmail ||
-    ((submittedIdentifier === 'admin' || submittedIdentifier === 'administrateur') && envAdminEmail.startsWith('admin')) ||
-    (submittedIdentifier === envAdminEmail.split('@')[0])
-  );
+    if (isEnvAdminMatch && isPasswordMatch) {
+      console.log('[Admin Login] [Succès] Authentification validée via variables d\'environnement.');
+      resetLoginRateLimit(ip);
 
-  // 1. Direct match with .env configured administrator credentials
-  if (isEnvAdminMatch && isPasswordMatch) {
-    console.log('[Admin Login] Succès authentification via identifiants .env');
-    resetLoginRateLimit(ip);
-    let userId = 'admin-principal';
-    let name = 'Administrateur ProGen Bénin';
-    const role: 'admin' = 'admin';
+      let userId = '580b7225-f554-40d4-b9a2-1790d4609368';
+      let name = 'Administrateur ProGen Bénin';
+      const role: 'admin' = 'admin';
 
-    try {
-      // Vérification ou récupération de l'UUID existant dans admin_users
-      const existingUser = await pool.query('SELECT id, name FROM admin_users WHERE LOWER(email) = LOWER($1)', [envAdminEmail]);
-      if (existingUser.rows.length > 0) {
-        userId = existingUser.rows[0].id;
-        name = existingUser.rows[0].name;
-        await pool.query('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
-      } else {
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(envAdminPassword, salt);
-        const insertRes = await pool.query(
-          `INSERT INTO admin_users (email, password_hash, name, role, is_active, last_login)
-           VALUES ($1, $2, $3, $4, true, CURRENT_TIMESTAMP)
-           RETURNING id, name`,
-          [envAdminEmail, passwordHash, name, role]
-        );
-        if (insertRes.rows.length > 0) {
-          userId = insertRes.rows[0].id;
-          name = insertRes.rows[0].name;
+      try {
+        const existingUser = await pool.query('SELECT id, name FROM admin_users WHERE LOWER(email) = LOWER($1)', [envAdminEmail]);
+        if (existingUser.rows.length > 0) {
+          userId = existingUser.rows[0].id;
+          name = existingUser.rows[0].name || name;
+          await pool.query('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [userId]);
         }
+      } catch (dbSyncErr: any) {
+        console.warn('[Admin Login] [PostgreSQL Note] Synchronisation DB optionnelle non bloquante :', dbSyncErr?.message);
       }
-    } catch (e: any) {
-      console.warn('[Admin Login] Synchronisation DB optionnelle :', e.message);
-    }
 
-    const payload = {
-      userId,
-      email: envAdminEmail,
-      name,
-      role,
-    };
+      let token: string;
+      try {
+        token = signToken({
+          userId,
+          email: envAdminEmail,
+          name,
+          role,
+        });
+      } catch (tokenErr: any) {
+        console.error('[Admin Login] [Erreur Initialisation JWT] SECRET_KEY manquant :', tokenErr.message);
+        return res.status(500).json({
+          error: 'Configuration de sécurité incomplète : la variable d\'environnement SECRET_KEY est requise sur le serveur.',
+        });
+      }
 
-    const token = signToken(payload);
-    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
+      const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
+      res.cookie('admin_token', token, {
+        httpOnly: true,
+        secure: isHttps,
+        sameSite: 'lax',
+        maxAge: 8 * 60 * 60 * 1000, // 8h
+      });
 
-    res.cookie('admin_token', token, {
-      httpOnly: true,
-      secure: isHttps,
-      sameSite: 'lax',
-      maxAge: 8 * 60 * 60 * 1000, // 8h
-    });
-
-    try {
       await logActivity(userId, 'login', 'auth', userId, { email: envAdminEmail, source: 'env' });
-    } catch {}
 
-    return res.json({
-      success: true,
-      message: 'Connexion réussie',
-      token,
-      user: {
-        id: userId,
-        email: envAdminEmail,
-        name,
-        role,
-      },
-    });
+      return res.json({
+        success: true,
+        message: 'Connexion réussie',
+        token,
+        user: {
+          id: userId,
+          email: envAdminEmail,
+          name,
+          role,
+        },
+      });
+    }
   }
 
-  // 2. Otherwise verify against database admin_users
+  // 2. Vérification dans la table admin_users de PostgreSQL
   try {
+    console.log('[Admin Login] [PostgreSQL] Exécution de la requête de vérification utilisateur...');
     const userRes = await pool.query(
       `SELECT id, email, password_hash, name, role, is_active 
        FROM admin_users 
@@ -141,38 +134,54 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
     );
 
     if (userRes.rows.length === 0) {
-      console.log(`[Admin Login] Compte introuvable pour identifiant : "${submittedIdentifier}"`);
+      console.log('[Admin Login] [Échec Identifiant] Aucun compte correspondant trouvé.');
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect.' });
     }
 
     const user = userRes.rows[0];
     if (!user.is_active) {
-      console.log(`[Admin Login] Compte désactivé pour : ${user.email}`);
+      console.log(`[Admin Login] [Compte Inactif] Compte utilisateur ${user.id} désactivé.`);
       return res.status(403).json({ error: 'Ce compte administrateur a été désactivé.' });
     }
 
-    const isMatch = await bcrypt.compare(submittedPassword, user.password_hash);
-    if (!isMatch) {
-      console.log(`[Admin Login] Mot de passe non concordant pour : ${user.email}`);
+    if (!user.password_hash) {
+      console.log(`[Admin Login] [Configuration Incomplète] Aucun hash de mot de passe pour ${user.id}.`);
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect.' });
     }
 
+    console.log('[Admin Login] [Vérification Bcrypt] Comparaison du hash de mot de passe...');
+    const isMatch = await bcrypt.compare(submittedPassword, user.password_hash);
+    if (!isMatch) {
+      console.log('[Admin Login] [Échec Mot de Passe] Mot de passe non concordant.');
+      return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect.' });
+    }
+
+    console.log('[Admin Login] [Succès] Mot de passe validé avec succès dans PostgreSQL.');
     resetLoginRateLimit(ip);
 
-    // Update last_login
-    await pool.query('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
+    // Mise à jour de la date de dernière connexion
+    try {
+      await pool.query('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = $1', [user.id]);
+    } catch (e: any) {
+      console.warn('[Admin Login] [PostgreSQL Note] Impossible d\'enregistrer last_login :', e.message);
+    }
 
-    const payload = {
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    };
+    let token: string;
+    try {
+      token = signToken({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      });
+    } catch (tokenErr: any) {
+      console.error('[Admin Login] [Erreur Initialisation JWT] SECRET_KEY manquant :', tokenErr.message);
+      return res.status(500).json({
+        error: 'Configuration de sécurité incomplète : la variable d\'environnement SECRET_KEY est requise sur le serveur.',
+      });
+    }
 
-    const token = signToken(payload);
     const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production';
-
-    // Set HTTP-only cookie
     res.cookie('admin_token', token, {
       httpOnly: true,
       secure: isHttps,
@@ -193,7 +202,20 @@ adminRouter.post('/auth/login', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    console.error('[Admin Auth Error] Échec de la requête de connexion :', err?.message || err);
+    const isConnectionError =
+      err.code === 'ECONNREFUSED' ||
+      err.code === 'ENOTFOUND' ||
+      err.code === 'ETIMEDOUT' ||
+      err.message?.includes('timeout') ||
+      err.message?.includes('connection') ||
+      err.message?.includes('DATABASE_URL');
+
+    if (isConnectionError) {
+      console.error('[Admin Login] [Échec Connexion PostgreSQL] Impossible de joindre la base de données :', err.message);
+    } else {
+      console.error('[Admin Login] [Échec Requête SQL] Erreur lors de l\'exécution SQL :', err.message);
+    }
+
     return res.status(500).json({
       error: 'Erreur technique de connexion à la base de données. Veuillez réessayer dans quelques instants.',
     });
