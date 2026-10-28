@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
-import { ADMIN_BASE_PATH } from '../config.ts';
+import { ADMIN_BASE_PATH } from '../config';
 
 interface DashboardData {
   counts: {

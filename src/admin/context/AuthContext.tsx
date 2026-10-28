@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ADMIN_BASE_PATH } from '../config.ts';
+import { ADMIN_BASE_PATH } from '../config';
 
 export interface AdminUser {
   id: string;

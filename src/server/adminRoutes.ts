@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
-import { pool } from './db.ts';
+import { pool } from './db';
 import {
   requireAuth,
   requireRole,
@@ -11,8 +11,8 @@ import {
   checkLoginRateLimit,
   resetLoginRateLimit,
   type AuthenticatedRequest,
-} from './auth.ts';
-import { saveFile } from './storage.ts';
+} from './auth';
+import { saveFile } from './storage';
 
 const upload = multer({
   storage: multer.memoryStorage(),

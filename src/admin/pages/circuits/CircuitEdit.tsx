@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext.tsx';
 import { SimpleEditor } from '../../components/SimpleEditor.tsx';
 import { MediaUploader, MediaItem } from '../../components/MediaUploader.tsx';
 import { ConfirmModal } from '../../components/ConfirmModal.tsx';
-import { ADMIN_BASE_PATH } from '../../config.ts';
+import { ADMIN_BASE_PATH } from '../../config';
 
 export const CircuitEdit: React.FC = () => {
   const { id } = useParams<{ id: string }>();

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.tsx';
 import { useToast } from '../../context/ToastContext.tsx';
 import { ConfirmModal } from '../../components/ConfirmModal.tsx';
-import { ADMIN_BASE_PATH } from '../../config.ts';
+import { ADMIN_BASE_PATH } from '../../config';
 
 interface CircuitAdminItem {
   id: string;

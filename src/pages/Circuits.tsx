@@ -6,7 +6,7 @@ import { SectionTitle } from '../components/SectionTitle.tsx';
 import { CircuitCard } from '../components/CircuitCard.tsx';
 import { CircuitDetailModal } from '../components/CircuitDetailModal.tsx';
 import { Circuit, CircuitRegion } from '../types';
-import { INITIAL_CIRCUITS } from '../server/seedData.ts';
+import { INITIAL_CIRCUITS } from '../server/seedData';
 
 export const Circuits: React.FC = () => {
   const [circuits, setCircuits] = useState<Circuit[]>(INITIAL_CIRCUITS);

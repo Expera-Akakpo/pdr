@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
-import { ADMIN_BASE_PATH } from '../config.ts';
+import { ADMIN_BASE_PATH } from '../config';
 
 export const AdminLayout: React.FC = () => {
   const { user, logout, isAdmin } = useAuth();

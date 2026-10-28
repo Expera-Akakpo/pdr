@@ -5,7 +5,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import { mainApi } from './src/server/mainApi.ts';
+import { mainApi } from './src/server/mainApi';
 
 dotenv.config();
 

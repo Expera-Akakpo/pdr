@@ -6,7 +6,7 @@ import { SectionTitle } from '../components/SectionTitle.tsx';
 import { ProgramWeek } from '../components/ProgramWeek.tsx';
 import { BudgetTable } from '../components/BudgetTable.tsx';
 import { ProgramWeek as ProgramWeekType } from '../types';
-import { INITIAL_WEEKS } from '../server/seedData.ts';
+import { INITIAL_WEEKS } from '../server/seedData';
 
 export const Programs: React.FC = () => {
   const [weeks, setWeeks] = useState<ProgramWeekType[]>(INITIAL_WEEKS);

@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { pool } from './db.ts';
+import { pool } from './db';
 
 const rawSecret =
   process.env.SECRET_KEY ||

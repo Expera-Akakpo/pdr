@@ -7,7 +7,7 @@ import { RealisationCard } from '../components/RealisationCard.tsx';
 import { RealisationDetailModal } from '../components/RealisationDetailModal.tsx';
 import { Gallery, GalleryImage } from '../components/Gallery.tsx';
 import { Realisation } from '../types';
-import { INITIAL_REALISATIONS } from '../server/seedData.ts';
+import { INITIAL_REALISATIONS } from '../server/seedData';
 
 export const Realisations: React.FC = () => {
   const [realisations, setRealisations] = useState<Realisation[]>(INITIAL_REALISATIONS);

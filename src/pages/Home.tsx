@@ -13,7 +13,7 @@ import {
   INITIAL_STATS,
   INITIAL_TESTIMONIALS,
   INITIAL_PARTNERS,
-} from '../server/seedData.ts';
+} from '../server/seedData';
 
 export const Home: React.FC = () => {
   const [pilars, setPilars] = useState<Pilar[]>(INITIAL_PILARS);

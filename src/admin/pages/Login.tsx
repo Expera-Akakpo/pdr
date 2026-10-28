@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.tsx';
-import { ADMIN_BASE_PATH } from '../config.ts';
+import { ADMIN_BASE_PATH } from '../config';
 import { Logo } from '../../components/Logo.tsx';
 
 export const Login: React.FC = () => {

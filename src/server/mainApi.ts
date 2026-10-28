@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { pool, isDbConnected } from './db.ts';
-import { adminRouter } from './adminRoutes.ts';
+import { pool, isDbConnected } from './db';
+import { adminRouter } from './adminRoutes';
 import {
   INITIAL_PILARS,
   INITIAL_WEEKS,
@@ -10,7 +10,7 @@ import {
   INITIAL_TESTIMONIALS,
   INITIAL_PARTNERS,
   INITIAL_STATS,
-} from './seedData.ts';
+} from './seedData';
 
 export const mainApi = Router();
 

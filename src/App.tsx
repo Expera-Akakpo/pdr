@@ -12,7 +12,7 @@ const Contact = lazy(() => import('./pages/Contact.tsx').then(m => ({ default: m
 const NotFound = lazy(() => import('./pages/NotFound.tsx').then(m => ({ default: m.NotFound })));
 
 // Admin imports
-import { ADMIN_BASE_PATH, ADMIN_SEGMENT } from './admin/config.ts';
+import { ADMIN_BASE_PATH, ADMIN_SEGMENT } from './admin/config';
 import { AuthProvider } from './admin/context/AuthContext.tsx';
 import { ToastProvider } from './admin/context/ToastContext.tsx';
 import { AdminRouteGuard } from './admin/components/AdminRouteGuard.tsx';
